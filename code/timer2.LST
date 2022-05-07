@@ -1,0 +1,805 @@
+"File: timer2.asm    Assembler  Version 2.98      Page 1
+
+
+   1  0000              include HT68F001.inc
+
+
+   2  0000              
+   3  0000              ds	.section	'data'
+   4  0000              
+   5  0000  00          SMALLCOUNTDOWN DB ?
+   6  0001  00          MIDCOUNTDOWN DB ?
+   7  0002  00          BIGCOUNTDOWN DB ?
+   8  0003              
+   9  0003  00          DELAYCOUNTDOWN DB ?
+  10  0004              
+  11  0004  00          STATE DB ?
+  12  0005              
+  13  0005  00          TURNOFFCOUNTER DB ?
+  14  0006              
+  15  0006  00          LEDCOUNTER DB ?
+  16  0007              
+  17  0007  00          BLINKCOUNT DB ?
+  18  0008              
+  19  0008  00          LEDSTATE DB ?
+  20  0009              ; LEDSTATE.0 - keep track of pa0
+  21  0009              ; LEDSTATE.1 - if we just reset the counter
+  22  0009              ;LEDSTATE.4 - blink enabled
+  23  0009              ;LEDSTATE.5 - shortest blink
+  24  0009              ;LEDSTATE.6 - mid blink
+  25  0009              ;LEDSTATE.7 - longest blink
+  26  0009              
+  27  0009              ;state.0 = small byte done
+  28  0009              ;state.1 = mid byte done
+  29  0009              ;state.2 = big byte done
+  30  0009              ;state.3 = all done
+  31  0009              ;state.4 = first time through init
+  32  0009              ;state.5 = button has been pressed
+  33  0009              ;state.6 = periodic check
+  34  0009              ;state.7 = 8.125 seconds have passed
+  35  0009              
+  36  0000              cs	.section	at  000h	'code'
+  37  0000              
+  38  0000              org 00h 
+  39  0000  0A09        jmp POWERON
+  40  0001              org 04h
+  41  0004  0A70        jmp PERIODICINT
+  42  0005              org 08h
+  43  0008  0A6D        jmp TIMERINT
+  44  0009              
+  45  0009              POWERON:
+  46  0009  0D00     R  clr state.4
+  47  000A              
+  48  000A  0A0B        JMP INIT
+  49  000B              
+  50  000B              INIT:
+  51  000B              
+  52  000B  03CA        mov A, 00001010b
+  53  000C  0465        swap ACC
+  54  000D  03C8        mov A, 00001000b
+  55  000E  0022        mov WDTC, A			;disable watchdog
+  56  000F              
+  57  000F  07C0     R  clr LEDSTATE
+"File: timer2.asm    Assembler  Version 2.98      Page 2
+
+  58  0010              
+  59  0010              ;pa1 is switch
+  60  0010              ;pa5 is led
+  61  0010              
+  62  0010  0D0D        clr PAPU0
+  63  0011  0C2D        set PAPU1 ; pull up resistor for switch
+  64  0012  0D4D        clr PAPU2
+  65  0013  0D6D        clr PAPU3
+  66  0014  0D8D        clr PAPU4
+  67  0015  0DAD        CLR PAPU5
+  68  0016              
+  69  0016  0D0C        clr PAC0
+  70  0017  0C2C        set PAC1 ; switch is input
+  71  0018  0D4C        clr PAC2
+  72  0019  0D6C        clr PAC3
+  73  001A  0D8C        clr PAC4
+  74  001B  0DAC        clr PAC5 ; led is output
+  75  001C              
+  76  001C  0D0E        clr PAWU0
+  77  001D  0C2E        set PAWU1 ; turn on wake up control for switch
+  78  001E  0D4E        clr PAWU2
+  79  001F  0D6E        clr PAWU3
+  80  0020  0D8E        clr PAWU4
+  81  0021  0DAE        clr PAWU5
+  82  0022              
+  83  0022  0D0B        clr PA0 ; all pins off
+  84  0023  0D2B        clr PA1
+  85  0024  0D4B        clr PA2
+  86  0025  0D6B        clr PA3
+  87  0026  0D8B        clr PA4
+  88  0027  0DAB        clr PA5
+  89  0028              
+  90  0028  0D00     R  clr STATE.7
+  91  0029  0C00     R  set STATE.0 ; set big bit high, it needs to clear to mark it done
+  92  002A  0C00     R  set STATE.1 ; set mid bit high, it needs to clear to mark it done
+  93  002B  0C00     R  set STATE.2 ; set low bit high, it needs to clear to mark it done
+  94  002C              ; once all 3 bits are set to 0, it means we're done running
+  95  002C  0D00     R  clr STATE.3 ; 3 is 1 when all done
+  96  002D  0D00     R  clr STATE.5
+  97  002E              
+  98  002E  03CF        mov A, 00001111b ; SMALLCOUNTDOWN should always be 255
+  99  002F  0465        swap ACC
+ 100  0030  03CF        mov A, 00001111b
+ 101  0031              
+ 102  0031  0020     R  mov SMALLCOUNTDOWN, A
+ 103  0032              
+ 104  0032  03CF        mov A, 00001111b ; MIDCOUNTDOWN should be 255 for 1 week
+ 105  0033  0465        swap ACC
+ 106  0034  03CF        mov A, 00001111b
+ 107  0035              
+ 108  0035  0020     R  mov MIDCOUNTDOWN, A
+ 109  0036              
+ 110  0036  03C2        mov A, 00000010b ; BIGCOUNTDOWN should be 32 for 1 week
+ 111  0037  0465        swap ACC
+ 112  0038  03C0        mov A, 00000000b
+ 113  0039              
+ 114  0039  0020     R  mov BIGCOUNTDOWN, A
+ 115  003A              
+ 116  003A              
+ 117  003A  03C0        mov A, 00000000b
+"File: timer2.asm    Assembler  Version 2.98      Page 3
+
+ 118  003B  0465        swap ACC
+ 119  003C  03C0        mov A, 00000000b
+ 120  003D  0024        mov TMR, A		;preload timer counter to 254, so it triggers an interrupt after ~4 ms
+ 121  003E              
+ 122  003E  03C7        mov A, 00000111b
+ 123  003F  0465        swap ACC
+ 124  0040  03C0        mov A, 00000000b
+ 125  0041  0020     R  mov TURNOFFCOUNTER, A
+ 126  0042              
+ 127  0042  0CE3        set TM1
+ 128  0043  0DC3        clr TM0 		; set timer mode to counter
+ 129  0044              
+ 130  0044  0D03        clr TPSC0
+ 131  0045  0D23        clr TPSC1
+ 132  0046  0C43        set TPSC2		; set timer to operate at 250hz
+ 133  0047              
+ 134  0047  0C83        set TON			; start the timer
+ 135  0048              
+ 136  0048  03C0        mov A, 00000000b
+ 137  0049  0465        swap ACC
+ 138  004A  03C7        mov A, 00000111b
+ 139  004B  0029        mov INTC, A		  ; enable timer base interrupts, timer counter interrupts and global interrupts
+ 140  004C              
+ 141  004C  03C8        mov A, 00001000b
+ 142  004D  0465        swap ACC
+ 143  004E  03C7        mov A, 00000111b
+ 144  004F  0028        mov TBC, A		  ; turn on timerbase interrupt, with it triggering every 8 seconds (0111b)
+ 145  0050              
+ 146  0050  0F00     R  sz state.4
+ 147  0051  0A58        jmp SHOWTURNONBLINKS
+ 148  0052  0C00     R  set state.4
+ 149  0053  0AEB        JMP TURNOFF
+ 150  0054              
+ 151  0054              HANDLETURNONPERIODIC:
+ 152  0054  0D00     R  clr STATE.6
+ 153  0055              
+ 154  0055  05E0     R  sdz LEDCOUNTER
+ 155  0056  0A5D        JMP TURNONLOOP
+ 156  0057              
+ 157  0057  0A60        JMP ENDTURNONLED
+ 158  0058              
+ 159  0058              
+ 160  0058              SHOWTURNONBLINKS:
+ 161  0058              
+ 162  0058  03C2        mov A, 00000010b
+ 163  0059  0465        SWAP ACC
+ 164  005A  03C0        mov A, 00000000b
+ 165  005B  0020     R  MOV LEDCOUNTER, A
+ 166  005C              
+ 167  005C  0CAB        set PA5
+ 168  005D              
+ 169  005D              TURNONLOOP:
+ 170  005D              
+ 171  005D  0F00     R  sz  STATE.6
+ 172  005E  0A54        JMP HANDLETURNONPERIODIC
+ 173  005F              
+ 174  005F  0A5D        JMP TURNONLOOP
+ 175  0060              
+ 176  0060              ENDTURNONLED:
+ 177  0060              
+"File: timer2.asm    Assembler  Version 2.98      Page 4
+
+ 178  0060  03C0        mov A, 00000000b
+ 179  0061  0465        SWAP ACC
+ 180  0062  03C0        mov A, 00000000b
+ 181  0063  0020     R  MOV LEDCOUNTER, A
+ 182  0064              
+ 183  0064  0D00     R  clr LEDSTATE.4
+ 184  0065  0DAB        clr PA5
+ 185  0066  0D00     R  clr STATE.5
+ 186  0067              
+ 187  0067  0A68        JMP MAIN
+ 188  0068              
+ 189  0068              
+ 190  0068              MAIN:
+ 191  0068              
+ 192  0068  0F00     R  sz STATE.7
+ 193  0069  0AF6        JMP HANDLETIMER
+ 194  006A  0F00     R  sz STATE.6
+ 195  006B  0A77        JMP HANDLEPERIODIC
+ 196  006C              
+ 197  006C  0A68        JMP MAIN
+ 198  006D              
+ 199  006D              TIMERINT PROC
+ 200  006D              
+ 201  006D  0C09        set EMI			  ; reenable global interrupts
+ 202  006E              
+ 203  006E  0C00     R  set STATE.7
+ 204  006F              
+ 205  006F  0004        RETI
+ 206  0070              TIMERINT ENDP
+ 207  0070              
+ 208  0070              PERIODICINT PROC
+ 209  0070  0C09        SET EMI
+ 210  0071              
+ 211  0071  0C00     R  SET STATE.6
+ 212  0072              
+ 213  0072  03CE        mov A, 00001110b
+ 214  0073  0465        swap ACC
+ 215  0074  03C6        mov A, 00000110b
+ 216  0075  0024        mov TMR, A ;reset timer starting point to give us 100ms call
+ 217  0076              
+ 218  0076  0004        RETI
+ 219  0077              PERIODICINT ENDP
+ 220  0077              
+ 221  0077              HANDLEPERIODIC:
+ 222  0077  0D00     R  clr STATE.6
+ 223  0078              
+ 224  0078  0F2B        sz PA1
+ 225  0079  0AC6        JMP NOBUTTON ;PA1 high here means no button press, its pullup
+ 226  007A  0AD7        JMP HANDLEBUTTON
+ 227  007B              
+ 228  007B              HANDLEAFTERBUTTON:
+ 229  007B              
+ 230  007B  0F00     R  sz STATE.3
+ 231  007C  08BD        CALL SETDONEBLINKS
+ 232  007D              
+ 233  007D  087F        call SHOWBLINKS
+ 234  007E              
+ 235  007E  0A68        JMP MAIN
+ 236  007F              
+ 237  007F              
+"File: timer2.asm    Assembler  Version 2.98      Page 5
+
+ 238  007F              SHOWBLINKS PROC
+ 239  007F              
+ 240  007F  0E00     R  SNZ LEDSTATE.4
+ 241  0080  0A87        JMP ENDBLINKS
+ 242  0081              
+ 243  0081  0420     R  SZ LEDCOUNTER
+ 244  0082  0A84        JMP LIGHTUP
+ 245  0083  0A97        JMP SETLEDCOUNTER
+ 246  0084              
+ 247  0084              LIGHTUP:
+ 248  0084              
+ 249  0084  05E0     R  sdz LEDCOUNTER
+ 250  0085  0A87        JMP ENDBLINKS
+ 251  0086  0A88        JMP DECREMENTBLINKCOUNT
+ 252  0087              
+ 253  0087              
+ 254  0087              
+ 255  0087              
+ 256  0087              ENDBLINKS:
+ 257  0087  0003        RET
+ 258  0088              SHOWBLINKS ENDP
+ 259  0088              
+ 260  0088              DECREMENTBLINKCOUNT:
+ 261  0088  05E0     R  sdz BLINKCOUNT
+ 262  0089  0A8B        JMP SWITCHBLINK
+ 263  008A  0A91        JMP CLEARBLINKS
+ 264  008B              
+ 265  008B              
+ 266  008B              SWITCHBLINK:
+ 267  008B  0FAB        sz PA5
+ 268  008C  0A8F        JMP CLEARPA5
+ 269  008D  0CAB        SET PA5
+ 270  008E              
+ 271  008E  0A87        JMP ENDBLINKS
+ 272  008F              
+ 273  008F              CLEARPA5:
+ 274  008F  0DAB        clr PA5
+ 275  0090  0A87        JMP ENDBLINKS
+ 276  0091              
+ 277  0091              CLEARBLINKS:
+ 278  0091  0DAB        clr PA5
+ 279  0092  0D00     R  clr LEDSTATE.4
+ 280  0093  0D00     R  clr LEDSTATE.5
+ 281  0094  0D00     R  clr LEDSTATE.6
+ 282  0095  0D00     R  clr LEDSTATE.7
+ 283  0096  0A87        JMP ENDBLINKS
+ 284  0097              
+ 285  0097              
+ 286  0097              SETLEDCOUNTER:
+ 287  0097  0F00     R  sz LEDSTATE.5
+ 288  0098  0A9E        JMP SETFASTBLINKS
+ 289  0099              
+ 290  0099  0F00     R  SZ LEDSTATE.6
+ 291  009A  0AA3        JMP SETMIDBLINKS
+ 292  009B              
+ 293  009B  0F00     R  SZ LEDSTATE.7
+ 294  009C  0AB0        JMP SETLONGBLINKS
+ 295  009D              
+ 296  009D  0A68        JMP MAIN
+ 297  009E              
+"File: timer2.asm    Assembler  Version 2.98      Page 6
+
+ 298  009E              SETFASTBLINKS:
+ 299  009E  03C0        mov A, 00000000b
+ 300  009F  0465        SWAP ACC
+ 301  00A0  03C8        mov A, 00001000b
+ 302  00A1  0020     R  MOV LEDCOUNTER, A
+ 303  00A2              
+ 304  00A2  0A84        JMP LIGHTUP
+ 305  00A3              
+ 306  00A3              SETMIDBLINKS:
+ 307  00A3              
+ 308  00A3  0FAB        sz PA5
+ 309  00A4  0AAB        JMP SETONBLINKS
+ 310  00A5              
+ 311  00A5  0AA6        JMP SETOFFBLINKS
+ 312  00A6              
+ 313  00A6              SETOFFBLINKS:
+ 314  00A6              
+ 315  00A6  03C4        mov A, 00000100b
+ 316  00A7  0465        SWAP ACC
+ 317  00A8  03C0        mov A, 00000000b
+ 318  00A9  0020     R  MOV LEDCOUNTER, A
+ 319  00AA              
+ 320  00AA  0A84        JMP LIGHTUP
+ 321  00AB              
+ 322  00AB              SETONBLINKS:
+ 323  00AB              
+ 324  00AB  03C0        mov A, 00000000b
+ 325  00AC  0465        SWAP ACC
+ 326  00AD  03C8        mov A, 00001000b
+ 327  00AE  0020     R  MOV LEDCOUNTER, A
+ 328  00AF              
+ 329  00AF  0A84        JMP LIGHTUP
+ 330  00B0              
+ 331  00B0              SETLONGBLINKS:
+ 332  00B0              
+ 333  00B0  0FAB        sz PA5
+ 334  00B1  0AB8        JMP SETONLONGBLINKS
+ 335  00B2              
+ 336  00B2  0AB3        JMP SETOFFLONGBLINKS
+ 337  00B3              
+ 338  00B3              SETOFFLONGBLINKS:
+ 339  00B3              
+ 340  00B3  03C1        mov A, 00000001b
+ 341  00B4  0465        SWAP ACC
+ 342  00B5  03C0        mov A, 00000000b
+ 343  00B6  0020     R  MOV LEDCOUNTER, A
+ 344  00B7              
+ 345  00B7  0A84        JMP LIGHTUP
+ 346  00B8              
+ 347  00B8              SETONLONGBLINKS:
+ 348  00B8              
+ 349  00B8  03C8        mov A, 00001000b
+ 350  00B9  0465        SWAP ACC
+ 351  00BA  03C0        mov A, 00000000b
+ 352  00BB  0020     R  MOV LEDCOUNTER, A
+ 353  00BC              
+ 354  00BC  0A84        JMP LIGHTUP
+ 355  00BD              
+ 356  00BD              
+ 357  00BD              
+"File: timer2.asm    Assembler  Version 2.98      Page 7
+
+ 358  00BD              SETDONEBLINKS PROC
+ 359  00BD              
+ 360  00BD  0F00     R  sz LEDSTATE.4
+ 361  00BE  0AC5        JMP ENDDONEBLINKS
+ 362  00BF              
+ 363  00BF  0C00     R  set LEDSTATE.6
+ 364  00C0  03C0        mov A, 00000000b
+ 365  00C1  0465        swap ACC
+ 366  00C2  03C2        mov A, 00000010b
+ 367  00C3  0020     R  mov BLINKCOUNT, A
+ 368  00C4              
+ 369  00C4  0C00     R  set LEDSTATE.4
+ 370  00C5              
+ 371  00C5              ENDDONEBLINKS:
+ 372  00C5              
+ 373  00C5  0003        RET
+ 374  00C6              SETDONEBLINKS ENDP
+ 375  00C6              
+ 376  00C6              
+ 377  00C6              NOBUTTON:
+ 378  00C6              
+ 379  00C6  0F00     R  sz STATE.5 ; if 5 is 1, it was pressed
+ 380  00C7  0AC9        jmp SHOWONBLINKS
+ 381  00C8  0A7B        JMP HANDLEAFTERBUTTON
+ 382  00C9              
+ 383  00C9              
+ 384  00C9              SHOWONBLINKS:
+ 385  00C9  0D00     R  clr STATE.5
+ 386  00CA              
+ 387  00CA  03C7        mov A, 00000111b
+ 388  00CB  0465        swap ACC
+ 389  00CC  03C0        mov A, 00000000b
+ 390  00CD  0020     R  mov TURNOFFCOUNTER, A ; reset turn off counter, button was released
+ 391  00CE              
+ 392  00CE  0F00     R  sz STATE.3
+ 393  00CF  0A7B        jmp HANDLEAFTERBUTTON ; ignore showing on blinks if its expired
+ 394  00D0              
+ 395  00D0  0C00     R  set LEDSTATE.5
+ 396  00D1  03C0        mov A, 00000000b
+ 397  00D2  0465        swap ACC
+ 398  00D3  03C4        mov A, 00000100b
+ 399  00D4  0020     R  mov BLINKCOUNT, A
+ 400  00D5              
+ 401  00D5  0C00     R  set LEDSTATE.4
+ 402  00D6              
+ 403  00D6  0A7B        JMP HANDLEAFTERBUTTON
+ 404  00D7              
+ 405  00D7              HANDLEBUTTON:
+ 406  00D7  0C00     R  set STATE.5 ; set that the button has been pressed
+ 407  00D8              
+ 408  00D8  05E0     R  sdz TURNOFFCOUNTER
+ 409  00D9  0A7B        jmp HANDLEAFTERBUTTON
+ 410  00DA  0ADB        jmp SHOWTURNOFFBLINKS
+ 411  00DB              
+ 412  00DB              SHOWTURNOFFBLINKS:
+ 413  00DB              ;------------------------------------
+ 414  00DB              
+ 415  00DB  0D00     R  clr LEDSTATE.6
+ 416  00DC  0D00     R  clr LEDSTATE.5
+ 417  00DD  0C00     R  set LEDSTATE.7
+"File: timer2.asm    Assembler  Version 2.98      Page 8
+
+ 418  00DE  03C0        mov A, 00000000b
+ 419  00DF  0465        swap ACC
+ 420  00E0  03C6        mov A, 00000110b
+ 421  00E1  0020     R  mov BLINKCOUNT, A
+ 422  00E2              
+ 423  00E2  0C00     R  set LEDSTATE.4
+ 424  00E3              
+ 425  00E3              HANDLETURNOFFBLINKS:
+ 426  00E3              
+ 427  00E3  0F00     R  sz STATE.6
+ 428  00E4  0AE8        JMP HANDLEPERIODICTURNINGOFF
+ 429  00E5              
+ 430  00E5  0F00     R  sz LEDSTATE.4
+ 431  00E6  0AE3        jmp HANDLETURNOFFBLINKS
+ 432  00E7              
+ 433  00E7  0AEB        JMP TURNOFF
+ 434  00E8              
+ 435  00E8              HANDLEPERIODICTURNINGOFF:
+ 436  00E8              
+ 437  00E8  0D00     R  clr STATE.6
+ 438  00E9              
+ 439  00E9  087F        CALL SHOWBLINKS
+ 440  00EA              
+ 441  00EA  0AE3        JMP HANDLETURNOFFBLINKS
+ 442  00EB              
+ 443  00EB              
+ 444  00EB              
+ 445  00EB              TURNOFF:
+ 446  00EB  03C0        mov A, 00000000b
+ 447  00EC  0465        swap ACC
+ 448  00ED  03C0        mov A, 00000000b
+ 449  00EE  0029        mov INTC, A	; turn off all interrupts
+ 450  00EF              
+ 451  00EF  03C0        mov A, 00000000b
+ 452  00F0  0465        swap ACC
+ 453  00F1  03C0        mov A, 00000000b
+ 454  00F2  0028        mov TBC, A ; turn off timerbase counter
+ 455  00F3              
+ 456  00F3  0D83        clr TON
+ 457  00F4              
+ 458  00F4              
+ 459  00F4  0002        HALT ; everything resumes from here
+ 460  00F5  0A0B        JMP INIT
+ 461  00F6              
+ 462  00F6              HANDLETIMER:
+ 463  00F6              
+ 464  00F6  0D00     R  clr STATE.7
+ 465  00F7              
+ 466  00F7  0F00     R  sz STATE.3
+ 467  00F8  0A68        jmp MAIN
+ 468  00F9              
+ 469  00F9  0F0B        sz PA0
+ 470  00FA  0AFD        jmp CLRPA0
+ 471  00FB              
+ 472  00FB  0C0B        set PA0
+ 473  00FC  0AFE        jmp CONTINUETIMER
+ 474  00FD              
+ 475  00FD              CLRPA0:
+ 476  00FD  0D0B        clr PA0
+ 477  00FE              
+"File: timer2.asm    Assembler  Version 2.98      Page 9
+
+ 478  00FE              CONTINUETIMER:
+ 479  00FE              
+ 480  00FE  0560     R  dec SMALLCOUNTDOWN ; once SMALLCOUNTDOWN hits zero, need to check if we're done
+ 481  00FF              
+ 482  00FF  0F00     R  sz LEDSTATE.1
+ 483  0100  0B7B        jmp CHECKSMALLCOUNT
+ 484  0101              
+ 485  0101  0B60        JMP MIDTIME ; comment out to echo out small byte
+ 486  0102              
+ 487  0102  0B03        JMP ECHOBYTES
+ 488  0103              
+ 489  0103              ECHOBYTES:
+ 490  0103              
+ 491  0103  0C4B        set PA2
+ 492  0104              
+ 493  0104  0F0B        sz PA0
+ 494  0105  0B08        jmp SETLEDSTATE0
+ 495  0106              
+ 496  0106  0D00     R  clr LEDSTATE.0
+ 497  0107  0B0A        JMP TRANSMITBITS
+ 498  0108              
+ 499  0108              SETLEDSTATE0:
+ 500  0108  0C00     R  set LEDSTATE.0
+ 501  0109              
+ 502  0109  0B0A        JMP TRANSMITBITS
+ 503  010A              
+ 504  010A              TRANSMITBITS:
+ 505  010A              
+ 506  010A  0D0B        clr PA0
+ 507  010B              
+ 508  010B  0974        CALL DELAY
+ 509  010C              
+ 510  010C              ;bit 7
+ 511  010C              
+ 512  010C  0F00     R  sz SMALLCOUNTDOWN.7
+ 513  010D  0C0B        set PA0
+ 514  010E              
+ 515  010E  0F00     R  sz SMALLCOUNTDOWN.7
+ 516  010F  0B12        jmp bit6
+ 517  0110              
+ 518  0110  0D0B        clr PA0
+ 519  0111  0B12        jmp bit6
+ 520  0112              
+ 521  0112              bit6:
+ 522  0112  0D4B        clr PA2
+ 523  0113  0974        call DELAY
+ 524  0114  0C4B        SET PA2
+ 525  0115  0974        call DELAY
+ 526  0116              
+ 527  0116  0F00     R  sz SMALLCOUNTDOWN.6
+ 528  0117  0C0B        set PA0
+ 529  0118              
+ 530  0118  0F00     R  sz SMALLCOUNTDOWN.6
+ 531  0119  0B1C        jmp bit5
+ 532  011A              
+ 533  011A  0D0B        clr PA0
+ 534  011B  0B1C        jmp bit5
+ 535  011C              
+ 536  011C              bit5:
+ 537  011C  0D4B        clr PA2
+"File: timer2.asm    Assembler  Version 2.98      Page 10
+
+ 538  011D  0974        call DELAY
+ 539  011E  0C4B        SET PA2
+ 540  011F  0974        call DELAY
+ 541  0120              
+ 542  0120  0F00     R  sz SMALLCOUNTDOWN.5
+ 543  0121  0C0B        set PA0
+ 544  0122              
+ 545  0122  0F00     R  sz SMALLCOUNTDOWN.5
+ 546  0123  0B26        jmp bit4
+ 547  0124              
+ 548  0124  0D0B        clr PA0
+ 549  0125  0B26        jmp bit4
+ 550  0126              
+ 551  0126              bit4:
+ 552  0126  0D4B        clr PA2
+ 553  0127  0974        call DELAY
+ 554  0128  0C4B        SET PA2
+ 555  0129  0974        call DELAY
+ 556  012A              
+ 557  012A  0F00     R  sz SMALLCOUNTDOWN.4
+ 558  012B  0C0B        set PA0
+ 559  012C              
+ 560  012C  0F00     R  sz SMALLCOUNTDOWN.4
+ 561  012D  0B30        jmp bit3
+ 562  012E              
+ 563  012E  0D0B        clr PA0
+ 564  012F  0B30        jmp bit3
+ 565  0130              
+ 566  0130              bit3:
+ 567  0130  0D4B        clr PA2
+ 568  0131  0974        call DELAY
+ 569  0132  0C4B        SET PA2
+ 570  0133  0974        call DELAY
+ 571  0134              
+ 572  0134  0F00     R  sz SMALLCOUNTDOWN.3
+ 573  0135  0C0B        set PA0
+ 574  0136              
+ 575  0136  0F00     R  sz SMALLCOUNTDOWN.3
+ 576  0137  0B3A        jmp bit2
+ 577  0138              
+ 578  0138  0D0B        clr PA0
+ 579  0139  0B3A        jmp bit2
+ 580  013A              
+ 581  013A              bit2:
+ 582  013A  0D4B        clr PA2
+ 583  013B  0974        call DELAY
+ 584  013C  0C4B        SET PA2
+ 585  013D  0974        call DELAY
+ 586  013E              
+ 587  013E  0F00     R  sz SMALLCOUNTDOWN.2
+ 588  013F  0C0B        set PA0
+ 589  0140              
+ 590  0140  0F00     R  sz SMALLCOUNTDOWN.2
+ 591  0141  0B44        jmp bit1
+ 592  0142              
+ 593  0142  0D0B        clr PA0
+ 594  0143  0B44        jmp bit1
+ 595  0144              
+ 596  0144              bit1:
+ 597  0144  0D4B        clr PA2
+"File: timer2.asm    Assembler  Version 2.98      Page 11
+
+ 598  0145  0974        call DELAY
+ 599  0146  0C4B        SET PA2
+ 600  0147  0974        call DELAY
+ 601  0148              
+ 602  0148  0F00     R  sz SMALLCOUNTDOWN.1
+ 603  0149  0C0B        set PA0
+ 604  014A              
+ 605  014A  0F00     R  sz SMALLCOUNTDOWN.1
+ 606  014B  0B4E        jmp bit0
+ 607  014C              
+ 608  014C  0D0B        clr PA0
+ 609  014D  0B4E        jmp bit0
+ 610  014E              
+ 611  014E              bit0:
+ 612  014E  0D4B        clr PA2
+ 613  014F  0974        call DELAY
+ 614  0150  0C4B        SET PA2
+ 615  0151  0974        call DELAY
+ 616  0152              
+ 617  0152  0F00     R  sz SMALLCOUNTDOWN.0
+ 618  0153  0C0B        set PA0
+ 619  0154              
+ 620  0154  0F00     R  sz SMALLCOUNTDOWN.0
+ 621  0155  0B58        jmp clear2
+ 622  0156              
+ 623  0156  0D0B        clr PA0
+ 624  0157  0B58        jmp clear2
+ 625  0158              
+ 626  0158              clear2:
+ 627  0158              
+ 628  0158  0D4B        clr PA2
+ 629  0159  0974        call DELAY
+ 630  015A              
+ 631  015A              ; reset pa0
+ 632  015A              
+ 633  015A  0F00     R  sz LEDSTATE.0
+ 634  015B  0B5E        jmp SETPA0FROMSTATE0
+ 635  015C              
+ 636  015C  0D0B        clr PA0
+ 637  015D  0B60        JMP MIDTIME
+ 638  015E              
+ 639  015E              SETPA0FROMSTATE0:
+ 640  015E  0C0B        set PA0
+ 641  015F              
+ 642  015F  0B60        JMP MIDTIME
+ 643  0160              
+ 644  0160              MIDTIME:
+ 645  0160  0420     R  sz SMALLCOUNTDOWN
+ 646  0161  0A68        JMP MAIN
+ 647  0162              
+ 648  0162              
+ 649  0162  0420     R  sz MIDCOUNTDOWN
+ 650  0163  0B6A        JMP DECREMENTMID
+ 651  0164              
+ 652  0164  0420     R  sz BIGCOUNTDOWN
+ 653  0165  0B6C        JMP DECREMENTBIG
+ 654  0166              
+ 655  0166              
+ 656  0166              ;sz STATE.1
+ 657  0166              ;jmp DECREMENTMID
+"File: timer2.asm    Assembler  Version 2.98      Page 12
+
+ 658  0166              
+ 659  0166  0D00     R  clr STATE.0
+ 660  0167              
+ 661  0167  0B68        jmp ALLDONE
+ 662  0168              
+ 663  0168              ALLDONE:
+ 664  0168              
+ 665  0168  0C00     R  set STATE.3
+ 666  0169              
+ 667  0169  0A68        JMP MAIN
+ 668  016A              
+ 669  016A              DECREMENTMID:
+ 670  016A  0560     R  dec MIDCOUNTDOWN
+ 671  016B              
+ 672  016B  0B6E        JMP RESETSMALL
+ 673  016C              
+ 674  016C              DECREMENTBIG:
+ 675  016C              
+ 676  016C  0560     R  dec BIGCOUNTDOWN
+ 677  016D  0B6E        JMP RESETSMALL
+ 678  016E              
+ 679  016E              
+ 680  016E              ;DECREMENTMID:
+ 681  016E              
+ 682  016E              ;sdz MIDCOUNTDOWN
+ 683  016E              ;JMP RESETSMALL
+ 684  016E              
+ 685  016E              ;sz STATE.2
+ 686  016E              ;JMP DECREMENTBIG
+ 687  016E              
+ 688  016E              ;clr STATE.1
+ 689  016E              ;JMP RESETSMALL
+ 690  016E              
+ 691  016E              
+ 692  016E              ;DECREMENTBIG:
+ 693  016E              ;clr STATE.2
+ 694  016E              ;JMP RESETMIDCOUNTDOWN
+ 695  016E              
+ 696  016E              ;RESETMIDCOUNTDOWN:
+ 697  016E              
+ 698  016E              ;mov A, 00001111b ; for 1wk counting
+ 699  016E              ;mov A, 00000000b ; for fast counting
+ 700  016E              ;swap ACC
+ 701  016E              ;mov A, 00001111b ; for 1 wk counting
+ 702  016E              ;mov A, 000000010b ; for fast counting
+ 703  016E              ;mov MIDCOUNTDOWN, A
+ 704  016E              
+ 705  016E              ;JMP RESETSMALL
+ 706  016E              
+ 707  016E              RESETSMALL:
+ 708  016E              
+ 709  016E  0C00     R  set LEDSTATE.1
+ 710  016F              
+ 711  016F  03CF        mov A, 00001111b ; for 1wk counting
+ 712  0170              ;mov A, 00000100b ; for fast counting
+ 713  0170  0465        swap ACC
+ 714  0171  03CF        mov A, 00001111b ; for 1wk counting
+ 715  0172              ;mov A, 00000000b ; for fast couting
+ 716  0172  0020     R  mov SMALLCOUNTDOWN, A
+ 717  0173              
+"File: timer2.asm    Assembler  Version 2.98      Page 13
+
+ 718  0173  0A68        JMP MAIN
+ 719  0174              
+ 720  0174              DELAY:
+ 721  0174              
+ 722  0174  03C8        mov A, 00001000b 
+ 723  0175  0465        swap ACC
+ 724  0176  03C0        mov A, 00000000b 
+ 725  0177  0020     R  mov DELAYCOUNTDOWN, A
+ 726  0178              
+ 727  0178              KEEPCOUNTING:
+ 728  0178              
+ 729  0178  05E0     R  sdz DELAYCOUNTDOWN
+ 730  0179  0B78        JMP KEEPCOUNTING
+ 731  017A              
+ 732  017A  0003        RET
+ 733  017B              
+ 734  017B              CHECKSMALLCOUNT:
+ 735  017B              
+ 736  017B  0D00     R  clr LEDSTATE.1
+ 737  017C              
+ 738  017C  0E00     R  snz SMALLCOUNTDOWN.7
+ 739  017D  0B8B        jmp FIXSMALLCOUNT
+ 740  017E              
+ 741  017E  0E00     R  snz SMALLCOUNTDOWN.6
+ 742  017F  0B8B        jmp FIXSMALLCOUNT
+ 743  0180              
+ 744  0180  0E00     R  snz SMALLCOUNTDOWN.5
+ 745  0181  0B8B        jmp FIXSMALLCOUNT
+ 746  0182              
+ 747  0182  0E00     R  snz SMALLCOUNTDOWN.4
+ 748  0183  0B8B        jmp FIXSMALLCOUNT
+ 749  0184              
+ 750  0184  0E00     R  snz SMALLCOUNTDOWN.3
+ 751  0185  0B8B        jmp FIXSMALLCOUNT
+ 752  0186              
+ 753  0186  0E00     R  snz SMALLCOUNTDOWN.2
+ 754  0187  0B8B        jmp FIXSMALLCOUNT
+ 755  0188              
+ 756  0188  0E00     R  snz SMALLCOUNTDOWN.1
+ 757  0189  0B8B        jmp FIXSMALLCOUNT
+ 758  018A              
+ 759  018A              ;jmp ECHOBYTES ;for echoing out small byte
+ 760  018A  0B60        JMP MIDTIME
+ 761  018B              
+ 762  018B              FIXSMALLCOUNT:
+ 763  018B              
+ 764  018B  0C00     R  set SMALLCOUNTDOWN.1
+ 765  018C  0C00     R  set SMALLCOUNTDOWN.2
+ 766  018D  0C00     R  set SMALLCOUNTDOWN.3
+ 767  018E  0C00     R  set SMALLCOUNTDOWN.4
+ 768  018F  0C00     R  set SMALLCOUNTDOWN.5
+ 769  0190  0C00     R  set SMALLCOUNTDOWN.6
+ 770  0191  0C00     R  set SMALLCOUNTDOWN.7
+ 771  0192              
+ 772  0192              ;jmp ECHOBYTES ; for echoing out small byte
+ 773  0192  0B60        JMP MIDTIME
+
+
+        0 Errors, 0 Warnings

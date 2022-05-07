@@ -1,0 +1,41 @@
+
+Linker Version 8.7.7.190619
+Input Object File: C:\Users\user\Documents\HTK_Project\timer2\TIMER2.OBJ
+
+Input Library File: C:\Program Files\Holtek MCU Development Tools\HT-IDE3000V8.x\LIB\MATH6.LIB
+Input Library File: C:\Program Files\Holtek MCU Development Tools\HT-IDE3000V8.x\LIB\time_srsc.lib
+Input Library File: C:\Program Files\Holtek MCU Development Tools\HT-IDE3000V8.x\LIB\ctype_srsc.lib
+Input Library File: C:\Program Files\Holtek MCU Development Tools\HT-IDE3000V8.x\LIB\math_srsc.lib
+Input Library File: C:\Program Files\Holtek MCU Development Tools\HT-IDE3000V8.x\LIB\stdlib_srsc.lib
+Input Library File: C:\Program Files\Holtek MCU Development Tools\HT-IDE3000V8.x\LIB\string_srsc.lib
+
+
+     Start     End      Length     Class    AvgIns    Name
+     0000h     0199h    019ah      CODE               CS (C:\Users\user\Documents\HTK_Project\timer2\TIMER2.OBJ)
+     0010h     0018h    0009h      DATA     13.556    DS (C:\Users\user\Documents\HTK_Project\timer2\TIMER2.OBJ)
+
+
+     Indepentent Local Sections
+
+     Start     End      Length     Class    AvgIns    Name
+     0019h     0019h    0000h      ILOCAL   0         TIMERINT (C:\Users\user\Documents\HTK_Project\timer2\TIMER2.OBJ)
+     0019h     0019h    0000h      ILOCAL   0         PERIODICINT (C:\Users\user\Documents\HTK_Project\timer2\TIMER2.OBJ)
+     0019h     0019h    0000h      ILOCAL   0         SHOWBLINKS (C:\Users\user\Documents\HTK_Project\timer2\TIMER2.OBJ)
+     0019h     0019h    0000h      ILOCAL   0         SETDONEBLINKS (C:\Users\user\Documents\HTK_Project\timer2\TIMER2.OBJ)
+
+
+ROM Usage Statistics
+     Size      Used     Percentage
+     0200h     019ah    80%
+
+RAM Usage Statistics
+     Size      Used     Percentage
+     0010h     0009h    56%
+
+Use Stack Count
+
+Call Tree
+
+HLINK: Program entry point at section 'CS' (address 0) of file 'C:\Users\user\Documents\HTK_Project\timer2\TIMER2.OBJ'
+
+Total 0 error(s), Total 0 Warning(s)
